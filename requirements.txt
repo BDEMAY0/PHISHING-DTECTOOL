@@ -1,3 +1,6 @@
 pip csv
 pip certstream
 pip pandas
+pip mysql-connector-python
+pip datetime
+pip logging
