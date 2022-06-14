@@ -1,6 +1,5 @@
-pip csv
-pip certstream
-pip pandas
-pip mysql-connector-python
-pip datetime
-pip loggingpip argparse
+mysql-connector==2.2.9
+certstream==1.12
+pandas==1.4.1
+tld==0.12.6
+websocket-client==1.3.2
