@@ -35,7 +35,7 @@ else:
 
 cur = conn.cursor()
 headers = {'API-Key': '81376bfb-cbce-419f-b822-655f7efc0ee4', 'Content-Type': 'application/json'}
-suspect_keyword = ['bank', 'paypal', 'mail', 'itunes', 'appleid', 'gmail', 'bitcoin', 'amazon', 'leboncoin']
+suspect_keyword = ['bank', 'paypal', 'mail', 'itunes', 'appleid', 'gmail', 'bitcoin', 'amazon', 'leboncoin', 'login']
 suspect_tld = ['.zip', '.review', '.country', '.kim', '.cricket', '.science','.party', '.buisness', '.gov',
                '.gouv']
 suspect_2tld = ['.work', '.link','.buzz']
@@ -92,7 +92,7 @@ def scoring(nom_domaine, all_domains, ca):
         score_ca = 20
     for keyword in suspect_keyword:
         if keyword in all_domains:
-            score_keyword = 30
+            score_keyword = 40
     for tld in suspect_tld:
         if tld in nom_domaine:
             score_tld = 70
@@ -101,8 +101,8 @@ def scoring(nom_domaine, all_domains, ca):
                 score2_tld = 25
         for cyrxn in cyrilique:
             if cyrxn in nom_domaine:
-                score_cyr2 = 30
-    if nom_domaine.count('.') >= 3:
+                score_cyr2 = 20
+    if 'xn--' not in nom_domaine and nom_domaine.count('.') >= 3:
         score_dot = 20
     if "workers" in nom_domaine:
         score2_tld = 0
