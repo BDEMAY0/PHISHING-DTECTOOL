@@ -9,6 +9,10 @@ from tld import is_tld, get_tld
 from getpass import getpass
 import sys
 import pandas as pd
+import requests
+import json
+import time
+
 lock_query = threading.Lock()
 logging.basicConfig(format='[%(levelname)s:%(name)s] %(asctime)s - %(message)s', level=logging.INFO)
 parser = argparse.ArgumentParser(description='PHISHING DTECTOOL')
@@ -18,58 +22,69 @@ args = parser.parse_args()
 bdd = args.bdd
 ip = args.ip
 
-
 loginBDD = input("Entrez votre identifiant de database : ")
 passwordBDD = getpass("Enter the password : ")
 
 conn = mysql.connector.connect(host=ip, user=loginBDD, password=passwordBDD, database=bdd)
 if (conn.is_connected()):
     print("Connected !")
-else :
+else:
     print("Not connected !")
     print("Exiting the program")
     print(sys.exit())
 
 cur = conn.cursor()
-suspect_keyword = ['bank','paypal','mail','itunes','appleid','gmail','bitcoin','amazon','leboncoin']
-suspect_tld = ['.zip','.review','.country','.kim','.cricket','.science','.work','.party','.gq','.link','.buisness','.gov','.gouv']
+headers = {'API-Key': '81376bfb-cbce-419f-b822-655f7efc0ee4', 'Content-Type': 'application/json'}
+suspect_keyword = ['bank', 'paypal', 'mail', 'itunes', 'appleid', 'gmail', 'bitcoin', 'amazon', 'leboncoin']
+suspect_tld = ['.zip', '.review', '.country', '.kim', '.cricket', '.science','.party', '.buisness', '.gov',
+               '.gouv']
+suspect_2tld = ['.work', '.link','.buzz']
+cyrilique = ['xn', 'xn-', 'xn--']
+
 
 class colors:
     VALID = '\033[92m'  # GREEN
-    SUSPECT = '\033[91m'  # RED
+    SUSPECT = '\033[41m'  # RED SURLIGNE
+    PHISHING = '\033[91m'  # RED
     WARNING = '\033[93m'  # ORANGE
-    RESET = '\033[0m' #RESET COLOR
+    RESET = '\033[0m'  # RESET COLOR
+
+
 
 def has_cyrillic(text):
     return bool(re.search('[\u0400-\u04FF]', text))
 
+
 def insert_db(nom_domain, score):
-    #Met a jour la bdd avec le score final du domaine
+    # Met a jour la bdd avec le score final du domaine
 
     entree = (nom_domain, score)
 
     cur.execute("INSERT INTO scoring (Nom_domaine, Scoring) VALUES (%s, %s)", entree)
 
 
-def calc_scoring(nom_domaine,top_sites):
+def calc_scoring(nom_domaine, top_sites):
     # Va chercher dans la liste si le nom de domaine existe
     resultat = top_sites.loc[top_sites['nom_domaine'] == nom_domaine]
     if not resultat.empty:
-        #Si un nom de domaine correspond alors score = 0
+        # Si un nom de domaine correspond alors score = 0
         score = 0
     else:
         score = 50
 
     return score
 
+
 def scoring(nom_domaine, all_domains, ca):
-    #Initialisation
+    # Initialisation
     score_trait = 0
     score_cyr = 0
+    score_cyr2 = 0
     score_keyword = 0
     score_ca = 0
     score_dot = 0
     score_tld = 0
+    score2_tld = 0
     top_sites = pd.read_csv("top-1m.csv")
     score_csv = calc_scoring(nom_domaine, top_sites)
 
@@ -82,21 +97,44 @@ def scoring(nom_domaine, all_domains, ca):
     for tld in suspect_tld:
         if tld in nom_domaine:
             score_tld = 70
+        for tld2 in suspect_2tld:
+            if tld2 in nom_domaine:
+                score2_tld = 25
+        for cyrxn in cyrilique:
+            if cyrxn in nom_domaine:
+                score_cyr2 = 30
     if nom_domaine.count('.') >= 3:
         score_dot = 20
+    if "workers" in nom_domaine:
+        score2_tld = 0
+
 
     if has_cyrillic(nom_domaine) == True:
-        score_cyr = 80
+        score_cyr = 60
     if nom_domaine.count('-') >= 3:
         score_trait = 20
-    #Donne un score a un nom de domaine à la fin de cette fonction
+    # Donne un score a un nom de domaine à la fin de cette fonction
 
 
-    score = score_csv+score_keyword+score_ca+score_cyr+score_dot+score_trait+score_tld
+    score = score_csv + score_keyword + score_ca + score_cyr + score_dot + score_trait + score_tld + score2_tld + score_cyr2
 
-    if score > 100 :
+    if score > 100:
+        data = {"url": f"https://{nom_domaine}", "visibility": "public"}
+        response = requests.post('https://urlscan.io/api/v1/scan/', headers=headers, data=json.dumps(data))
+        reponse = response.json()
+        result = reponse["result"]
+        time.sleep(9)
+        html = requests.get(result).content
+        html = str(html)
+        valide = "classification"
+        if valide in html:
+            score+=125
+
+    if score>180:
+        print(f"{colors.PHISHING}PHISHING : {nom_domaine} (score:{score}){colors.RESET}")
+    elif score > 100:
         print(f"{colors.SUSPECT}Suspicieux : {nom_domaine} (score:{score}){colors.RESET}")
-    elif score >= 70 | score <= 100:
+    elif score >= 75 | score <= 100:
         print(f"{colors.WARNING}Attention : {nom_domaine} (score:{score}){colors.RESET}")
     elif score < 50:
         print(f"{colors.VALID}Valide : {nom_domaine} (score:{score}){colors.RESET}")
@@ -114,12 +152,10 @@ class ThreadsManager:
         t.start()
 
 
-
 def send_domain(all_domains):
-
     dmn = all_domains[0]
     domainurl = "".join(["http://", dmn])
-    domaintldfinal =""
+    domaintldfinal = ""
     try:
         tld = get_tld(domainurl)
         domain_short = get_tld(domainurl, as_object=True)
@@ -137,12 +173,12 @@ def hit_certstream(message, context):
     all_domains = message['data']['leaf_cert']['all_domains']
     ca = message['data']['leaf_cert']['issuer']['O']
 
-    #print(threading.current_thread().getName(), message)
+    # print(threading.current_thread().getName(), message)
     # Lock access to db to avoid concurrent access, while wait locker release. Queue is automatically manage.
     lock_query.acquire()
     try:
-        #Affichage du contenu de message
-        #print(f"{datetime.datetime.now().strftime('%m/%d/%Y, %H:%M:%S')} | Lock acquire: {threading.current_thread().getName()}\nReceived message, type is -> {message['message_type']}")
+        # Affichage du contenu de message
+        # print(f"{datetime.datetime.now().strftime('%m/%d/%Y, %H:%M:%S')} | Lock acquire: {threading.current_thread().getName()}\nReceived message, type is -> {message['message_type']}")
         domain_final = send_domain(all_domains)
         if domain_final == "":
             exit()
@@ -155,12 +191,11 @@ def hit_certstream(message, context):
                 exit()
 
     finally:
-            # Release lock on db access
+        # Release lock on db access
 
         lock_query.release()
-    # Stop worker properly to limit memory and cpu usage on long run
+        # Stop worker properly to limit memory and cpu usage on long run
         exit()
-
 
 
 def on_open():
