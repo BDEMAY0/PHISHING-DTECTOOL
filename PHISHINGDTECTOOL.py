@@ -40,7 +40,7 @@ suspect_tld = ['.zip', '.review', '.country', '.kim', '.cricket', '.science','.p
                '.gouv']
 suspect_2tld = ['.work', '.link','.buzz']
 cyrilique = ['xn', 'xn-', 'xn--']
-
+top_sites = pd.read_csv("top-1m.csv")
 
 class colors:
     VALID = '\033[92m'  # GREEN
@@ -85,7 +85,6 @@ def scoring(nom_domaine, all_domains, ca):
     score_dot = 0
     score_tld = 0
     score2_tld = 0
-    top_sites = pd.read_csv("top-1m.csv")
     score_csv = calc_scoring(nom_domaine, top_sites)
 
     ###############
