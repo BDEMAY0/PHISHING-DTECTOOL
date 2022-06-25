@@ -127,6 +127,8 @@ def scoring(nom_domaine, all_domains, ca):
         html = str(html)
         valide = "classification"
         if valide in html:
+            pass
+        else:
             score+=125
 
     if score>180:
