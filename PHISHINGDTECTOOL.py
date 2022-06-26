@@ -35,8 +35,8 @@ else:
 
 cur = conn.cursor()
 headers = {'API-Key': '81376bfb-cbce-419f-b822-655f7efc0ee4', 'Content-Type': 'application/json'}
-suspect_keyword = ['bank', 'paypal', 'mail', 'itunes', 'appleid', 'gmail', 'bitcoin', 'amazon', 'leboncoin', 'login']
-suspect_tld = ['.zip', '.review', '.country', '.kim', '.cricket', '.science','.party', '.buisness', '.gov',
+suspect_keyword = ['bank', 'paypal', 'mail', 'itunes', 'appleid', 'gmail', 'bitcoin', 'amazon', 'leboncoin', 'login','github']
+suspect_tld = ['.zip', '.review', '.country', '.kim', '.cricket', '.science','.party', '.buisness', '.gov','.io',
                '.gouv']
 suspect_2tld = ['.work', '.link','.buzz']
 cyrilique = ['xn', 'xn-', 'xn--']
@@ -57,12 +57,20 @@ def has_cyrillic(text):
 
 def insert_db(nom_domain, score):
     # Met a jour la bdd avec le score final du domaine
-
     entree = (nom_domain, score)
 
     cur.execute("INSERT INTO scoring (Nom_domaine, Scoring) VALUES (%s, %s)", entree)
+    conn.commit()
+    if score>180:
+        print(f"""{colors.SUSPECT}PHISHING : {nom_domain} (score:{score}){colors.RESET}""")
+    if score >= 120:
+        print(f"""{colors.PHISHING}Suspicieux : {nom_domain} (score:{score}){colors.RESET}""")
+    if score >= 90 and score <= 109:
+        print(f"""{colors.WARNING}Attention : {nom_domain} (score:{score}){colors.RESET}""")
+    if score <= 70:
+        print(f"""{colors.VALID}Valide : {nom_domain} (score:{score}){colors.RESET}""")
 
-
+    
 def calc_scoring(nom_domaine, top_sites):
     # Va chercher dans la liste si le nom de domaine existe
     resultat = top_sites.loc[top_sites['nom_domaine'] == nom_domaine]
@@ -102,6 +110,7 @@ def scoring(nom_domaine, all_domains, ca):
         for cyrxn in cyrilique:
             if cyrxn in nom_domaine:
                 score_cyr2 = 20
+
     if 'xn--' not in nom_domaine and nom_domaine.count('.') >= 3:
         score_dot = 20
     if "workers" in nom_domaine:
@@ -117,7 +126,7 @@ def scoring(nom_domaine, all_domains, ca):
 
     score = score_csv + score_keyword + score_ca + score_cyr + score_dot + score_trait + score_tld + score2_tld + score_cyr2
 
-    if score > 100:
+    if score > 109:
         data = {"url": f"https://{nom_domaine}", "visibility": "public"}
         response = requests.post('https://urlscan.io/api/v1/scan/', headers=headers, data=json.dumps(data))
         reponse = response.json()
@@ -125,21 +134,9 @@ def scoring(nom_domaine, all_domains, ca):
         time.sleep(9)
         html = requests.get(result).content
         html = str(html)
-        valide = "classification"
+        valide = "Malicious Activity!"
         if valide in html:
-            pass
-        else:
-            score+=125
-
-    if score>180:
-        print(f"{colors.PHISHING}PHISHING : {nom_domaine} (score:{score}){colors.RESET}")
-    elif score > 100:
-        print(f"{colors.SUSPECT}Suspicieux : {nom_domaine} (score:{score}){colors.RESET}")
-    elif score >= 75 | score <= 100:
-        print(f"{colors.WARNING}Attention : {nom_domaine} (score:{score}){colors.RESET}")
-    elif score < 50:
-        print(f"{colors.VALID}Valide : {nom_domaine} (score:{score}){colors.RESET}")
-
+            score +=125
     insert_db(nom_domaine, score)
 
 
@@ -150,6 +147,8 @@ class ThreadsManager:
     def start_worker(self, message, context):
         t = threading.Thread(target=hit_certstream, args=(message, context), name=f"Worker N°{self.threads_cpt}")
         self.threads_cpt += 1
+        while threading.active_count()>2000 :
+            time.sleep(5)
         t.start()
 
 
