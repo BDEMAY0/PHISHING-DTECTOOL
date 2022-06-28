@@ -35,9 +35,9 @@ else:
 
 cur = conn.cursor()
 headers = {'API-Key': '81376bfb-cbce-419f-b822-655f7efc0ee4', 'Content-Type': 'application/json'}
-suspect_keyword = ['bank', 'paypal', 'mail', 'itunes', 'appleid', 'gmail', 'bitcoin', 'amazon', 'leboncoin', 'login','github']
+suspect_keyword = ['bank', 'paypal', 'mail', 'itunes', 'appleid', 'gmail', 'bitcoin', 'amazon', 'leboncoin', 'login','github','help','account']
 suspect_tld = ['.zip', '.review', '.country', '.kim', '.cricket', '.science','.party', '.buisness', '.gov','.io',
-               '.gouv']
+               '.gouv','.gq']
 suspect_2tld = ['.work', '.link','.buzz']
 cyrilique = ['xn', 'xn-', 'xn--']
 top_sites = pd.read_csv("top-1m.csv")
@@ -63,7 +63,7 @@ def insert_db(nom_domain, score):
     conn.commit()
     if score>180:
         print(f"""{colors.SUSPECT}PHISHING : {nom_domain} (score:{score}){colors.RESET}""")
-    if score >= 120:
+    if score >= 120 and score <=179:
         print(f"""{colors.PHISHING}Suspicieux : {nom_domain} (score:{score}){colors.RESET}""")
     if score >= 90 and score <= 109:
         print(f"""{colors.WARNING}Attention : {nom_domain} (score:{score}){colors.RESET}""")
@@ -84,6 +84,7 @@ def calc_scoring(nom_domaine, top_sites):
 
 
 def scoring(nom_domaine, all_domains, ca):
+
     # Initialisation
     score_trait = 0
     score_cyr = 0
@@ -131,7 +132,7 @@ def scoring(nom_domaine, all_domains, ca):
         response = requests.post('https://urlscan.io/api/v1/scan/', headers=headers, data=json.dumps(data))
         reponse = response.json()
         result = reponse["result"]
-        time.sleep(9)
+        time.sleep(8)
         html = requests.get(result).content
         html = str(html)
         valide = "Malicious Activity!"
